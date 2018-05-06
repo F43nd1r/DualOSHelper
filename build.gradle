@@ -1,0 +1,48 @@
+plugins {
+    id 'com.github.johnrengelman.shadow' version '2.0.4'
+    id 'java'
+    id 'application'
+    id 'edu.sc.seis.launch4j' version '2.4.3'
+}
+
+group 'com.faendir'
+version '1.0-SNAPSHOT'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile "com.github.tulskiy:jkeymaster:1.2"
+}
+
+sourceSets {
+    main {
+        java {
+            srcDirs = ['src/main/java']
+        }
+        resources {
+            srcDirs= [ 'src/main/res']
+        }
+    }
+}
+
+mainClassName = 'com.faendir.clipboardshare.Main'
+
+jar {
+    manifest {
+        attributes 'Main-Class': mainClassName
+    }
+}
+
+launch4j {
+    mainClassName = mainClassName
+    icon = "${projectDir}/src/main/res/mylogo.ico"
+    headerType = "gui"
+    copyConfigurable = project.tasks.shadowJar.outputs.files
+    jar = "lib/${project.tasks.shadowJar.archiveName}"
+    textVersion = "1.0"
+}
