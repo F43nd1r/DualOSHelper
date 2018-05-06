@@ -6,6 +6,8 @@ import com.faendir.clipboardshare.message.Command;
 import com.faendir.clipboardshare.message.KeyStrokeMessage;
 import com.faendir.clipboardshare.message.Message;
 import com.faendir.clipboardshare.message.StringMessage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.ClipboardOwner;
@@ -25,6 +27,7 @@ import java.util.concurrent.TimeUnit;
  * @since 27.04.18
  */
 public class Connector implements ClipboardOwner {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Socket socket;
     private final Clipboard clipboard;
     private InputHandler in;
@@ -53,7 +56,7 @@ public class Connector implements ClipboardOwner {
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 if (TimeUnit.MILLISECONDS.toMinutes(lastHeartbeat) + 5 < TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis())) {
                     try {
-                        System.out.println("No heartbeat for 5 Minutes. Stopping...");
+                        logger.info("No heartbeat for 5 Minutes. Stopping...");
                         stopNow();
                     } catch (IOException | InterruptedException ignored) {
                     }
@@ -61,7 +64,7 @@ public class Connector implements ClipboardOwner {
                     out.put(new Message(Command.HEARTBEAT));
                 }
             }, 3, 3, TimeUnit.MINUTES);
-            System.out.println("Socket connected");
+            logger.info("Socket connected");
             loop:
             while (!socket.isClosed() && !in.isStopped() && !out.isStopped()) {
                 try {
@@ -69,26 +72,28 @@ public class Connector implements ClipboardOwner {
                     switch (message.getCommand()) {
                         case CB_STRING_CONTENT:
                             StringMessage cbMessage = (StringMessage) message;
-                            System.out.println("Received remote clipboard content \"" + cbMessage.getMsg() + "\"");
+                            logger.debug("Received remote clipboard content \"" + cbMessage.getMsg() + "\"");
                             clipboard.setContents(new StringSelection(cbMessage.getMsg()), this);
                             break;
                         case KEY_STROKE:
                             KeyStrokeMessage keyStrokeMessage = (KeyStrokeMessage) message;
-                            System.out.println("Received keystroke " + keyStrokeMessage.getSequence().name());
+                            logger.debug("Received keystroke " + keyStrokeMessage.getSequence().name());
                             keyStrokeMessage.getSequence().perform();
                             break;
                         case HEARTBEAT:
+                            logger.debug("Received Heartbeat");
                             lastHeartbeat = System.currentTimeMillis();
                             break;
                         case URL_CONTENT:
                             StringMessage urlMessage = (StringMessage) message;
+                            logger.debug("Received remote url "+ urlMessage.getMsg());
                             Runtime.getRuntime().exec("xdg-open " + urlMessage.getMsg());
                         case SOCKET_EXIT:
-                            System.out.println("Received disconnect message");
+                            logger.debug("Received disconnect message");
                             stopNow();
                             break loop;
                         default:
-                            System.err.println("Invalid message " + message.getCommand());
+                            logger.error("Invalid message " + message.getCommand());
                             break;
                     }
                 } catch (InterruptedException ignored) {
@@ -96,7 +101,7 @@ public class Connector implements ClipboardOwner {
                     e.printStackTrace();
                 }
             }
-            System.out.println("Socket disconnected");
+            logger.info("Socket disconnected");
         } finally {
             scheduledExecutorService.shutdownNow();
             Runtime.getRuntime().removeShutdownHook(hook);
@@ -130,7 +135,7 @@ public class Connector implements ClipboardOwner {
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            System.out.println("Local ClipBoard Changed");
+            logger.debug("Local ClipBoard Changed");
             if (Arrays.asList(clipboard.getAvailableDataFlavors()).contains(DataFlavor.stringFlavor)) {
                 try {
                     out.put(new StringMessage(Command.CB_STRING_CONTENT, (String) clipboard.getData(DataFlavor.stringFlavor)));
@@ -138,7 +143,7 @@ public class Connector implements ClipboardOwner {
                     e.printStackTrace();
                 }
             } else {
-                System.out.println("ClipBoard content not supported, not sending");
+                logger.debug("ClipBoard content not supported, not sending");
             }
             gainOwnership();
         }

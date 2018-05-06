@@ -1,6 +1,8 @@
 package com.faendir.clipboardshare.io;
 
 import com.faendir.clipboardshare.message.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.Closeable;
 import java.io.EOFException;
@@ -16,6 +18,7 @@ import java.util.concurrent.LinkedBlockingDeque;
  * @since 27.04.18
  */
 public abstract class BaseHandler<T extends Closeable> {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private final BlockingDeque<Message> queue;
     private final Thread thread;
     private final Socket socket;
@@ -26,7 +29,7 @@ public abstract class BaseHandler<T extends Closeable> {
         queue = new LinkedBlockingDeque<>();
         thread = new Thread(() -> {
             try (T resource = openResource(socket)) {
-                System.out.println("Aquired resource of type " + resource.getClass().getSimpleName());
+                logger.debug("Aquired resource of type " + resource.getClass().getSimpleName());
                 while (!stop && !socket.isClosed() && isResourceOpen(socket)) {
                     try {
                         run(resource);
@@ -40,7 +43,7 @@ public abstract class BaseHandler<T extends Closeable> {
                         e.printStackTrace();
                     }
                 }
-                System.out.println("Dropping resource of type " + resource.getClass().getSimpleName());
+                logger.debug("Dropping resource of type " + resource.getClass().getSimpleName());
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -61,7 +64,7 @@ public abstract class BaseHandler<T extends Closeable> {
         if(!stop) {
             stop = true;
             if(!socket.isClosed()) {
-                System.out.println("Closing resource");
+                logger.debug("Closing resource");
                 closeResource(socket);
             }
             thread.interrupt();

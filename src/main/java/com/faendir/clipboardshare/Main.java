@@ -3,6 +3,8 @@ package com.faendir.clipboardshare;
 import com.faendir.clipboardshare.net.Client;
 import com.faendir.clipboardshare.net.InstanceManager;
 import com.faendir.clipboardshare.net.Server;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -16,36 +18,37 @@ import java.util.function.Consumer;
  */
 public class Main {
     public static void main(String[] args) {
+        Logger logger = LoggerFactory.getLogger(Main.class);
         InstanceManager instanceManager = new InstanceManager();
         final NewArgHandler newArgHandler = new NewArgHandler();
         if(instanceManager.start(args, newArgHandler)) {
             try {
                 Arguments arguments = Arguments.parse(args);
                 if (arguments.printHelp) {
-                    System.out.println("Supported arguments:");
-                    System.out.println("-h|--help print this message");
-                    System.out.println("-s|--server [<InetAddress>] start in server mode, optionally restricted to listening on InetAddress");
-                    System.out.println("-c|--client <InetAddress> start in client mode, connecting to the server at InetAddress");
+                    logger.info("Supported arguments:");
+                    logger.info("-h|--help print this message");
+                    logger.info("-s|--server [<InetAddress>] start in server mode, optionally restricted to listening on InetAddress");
+                    logger.info("-c|--client <InetAddress> start in client mode, connecting to the server at InetAddress");
                 } else if (arguments.server) {
                     Server server = new Server(arguments.address);
-                    System.out.println("Starting server...");
+                    logger.info("Starting server...");
                     try {
                         server.start();
                     } finally {
-                        System.out.println("Server stopped");
+                        logger.info("Server stopped");
                     }
                 } else if (arguments.client) {
                     Client client = new Client(arguments.address);
                     newArgHandler.urlHandler = client::handleUrl;
-                    System.out.println("Starting client...");
+                    logger.info("Starting client...");
                     try {
                         client.start();
                     } finally {
-                        System.out.println("Client stopped");
+                        logger.info("Client stopped");
                     }
                 }
             } catch (IllegalArgumentException e) {
-                System.err.println("Failed to parse parameters: " + e.getMessage());
+                logger.error("Failed to parse parameters: " + e.getMessage());
             } finally {
                 try {
                     instanceManager.stop();
@@ -53,7 +56,7 @@ public class Main {
                 }
             }
         }else {
-            System.out.println("Another instance is already running. Start parameters have been passed to that instance.");
+            logger.info("Another instance is already running. Start parameters have been passed to that instance.");
         }
         System.exit(0);
     }
@@ -123,11 +126,12 @@ public class Main {
     }
 
     private static class NewArgHandler implements Consumer<String[]> {
+        private final Logger logger = LoggerFactory.getLogger(getClass());
         private Consumer<String> urlHandler = null;
 
         @Override
         public void accept(String[] newArgs) {
-            System.out.println("Received args from another instance: "+ Arrays.toString(newArgs));
+            logger.debug("Received args from another instance: "+ Arrays.toString(newArgs));
             Arguments arguments = Arguments.parse(newArgs);
             if (urlHandler != null && arguments.url != null) {
                 urlHandler.accept(arguments.url);

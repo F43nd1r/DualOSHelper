@@ -17,6 +17,11 @@ repositories {
 
 dependencies {
     compile "com.github.tulskiy:jkeymaster:1.2"
+    compile "org.slf4j:slf4j-api:1.7.25"
+    def logbackVersion = "1.2.3"
+    compile "ch.qos.logback:logback-core:$logbackVersion"
+    compile "ch.qos.logback:logback-classic:$logbackVersion"
+    runtime "org.codehaus.groovy:groovy-all:2.4.15"
 }
 
 sourceSets {
@@ -45,4 +50,8 @@ launch4j {
     copyConfigurable = project.tasks.shadowJar.outputs.files
     jar = "lib/${project.tasks.shadowJar.archiveName}"
     textVersion = "1.0"
+}
+
+task createAll{
+    dependsOn installDist, createExe
 }
