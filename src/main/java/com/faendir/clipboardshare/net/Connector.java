@@ -3,7 +3,6 @@ package com.faendir.clipboardshare.net;
 import com.faendir.clipboardshare.io.InputHandler;
 import com.faendir.clipboardshare.io.OutputHandler;
 import com.faendir.clipboardshare.message.Command;
-import com.faendir.clipboardshare.message.KeyStrokeMessage;
 import com.faendir.clipboardshare.message.Message;
 import com.faendir.clipboardshare.message.StringMessage;
 import org.slf4j.Logger;
@@ -30,19 +29,19 @@ public class Connector implements ClipboardOwner {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Socket socket;
     private final Clipboard clipboard;
-    private InputHandler in;
-    private OutputHandler out;
+    private final InputHandler in;
+    private final OutputHandler out;
     private long lastHeartbeat;
 
     public Connector(Socket socket, Clipboard clipboard) {
         this.socket = socket;
         this.clipboard = clipboard;
+        in = new InputHandler(socket);
+        out = new OutputHandler(socket);
     }
 
     public void run() throws InterruptedException {
         gainOwnership();
-        in = new InputHandler(socket);
-        out = new OutputHandler(socket);
         in.start();
         out.start();
         Thread hook = new Thread(this::stop);
@@ -76,9 +75,9 @@ public class Connector implements ClipboardOwner {
                             clipboard.setContents(new StringSelection(cbMessage.getMsg()), this);
                             break;
                         case KEY_STROKE:
-                            KeyStrokeMessage keyStrokeMessage = (KeyStrokeMessage) message;
-                            logger.debug("Received keystroke " + keyStrokeMessage.getSequence().name());
-                            keyStrokeMessage.getSequence().perform();
+                            StringMessage keyStrokeMessage = (StringMessage) message;
+                            logger.debug("Received keystroke command" + keyStrokeMessage.getMsg());
+                            Runtime.getRuntime().exec(keyStrokeMessage.getMsg());
                             break;
                         case HEARTBEAT:
                             logger.debug("Received Heartbeat");

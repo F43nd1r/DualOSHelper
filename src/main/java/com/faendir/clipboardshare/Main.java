@@ -6,10 +6,13 @@ import com.faendir.clipboardshare.net.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.swing.*;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.function.Consumer;
 
 /**
@@ -21,7 +24,7 @@ public class Main {
         Logger logger = LoggerFactory.getLogger(Main.class);
         InstanceManager instanceManager = new InstanceManager();
         final NewArgHandler newArgHandler = new NewArgHandler();
-        if(instanceManager.start(args, newArgHandler)) {
+        if (instanceManager.start(args, newArgHandler)) {
             try {
                 Arguments arguments = Arguments.parse(args);
                 if (arguments.printHelp) {
@@ -29,6 +32,8 @@ public class Main {
                     logger.info("-h|--help print this message");
                     logger.info("-s|--server [<InetAddress>] start in server mode, optionally restricted to listening on InetAddress");
                     logger.info("-c|--client <InetAddress> start in client mode, connecting to the server at InetAddress");
+                    logger.info("-u|--url <url> send url to server browser");
+                    logger.info("-k|--hotkey <KeyStroke> <Command> run the command on the host when keystroke is pressed");
                 } else if (arguments.server) {
                     Server server = new Server(arguments.address);
                     logger.info("Starting server...");
@@ -38,7 +43,7 @@ public class Main {
                         logger.info("Server stopped");
                     }
                 } else if (arguments.client) {
-                    Client client = new Client(arguments.address);
+                    Client client = new Client(arguments.address, arguments.hotkeys);
                     newArgHandler.urlHandler = client::handleUrl;
                     logger.info("Starting client...");
                     try {
@@ -55,7 +60,7 @@ public class Main {
                 } catch (InterruptedException ignored) {
                 }
             }
-        }else {
+        } else {
             logger.info("Another instance is already running. Start parameters have been passed to that instance.");
         }
         System.exit(0);
@@ -67,15 +72,17 @@ public class Main {
         public InetAddress address = null;
         public boolean printHelp = false;
         public String url = null;
+        public Map<KeyStroke, String> hotkeys = new LinkedHashMap<>();
 
         public static Arguments parse(String[] args) throws IllegalArgumentException {
             if (args.length == 0) throw new IllegalArgumentException("Expected at least one parameter");
             ListIterator<String> iterator = Arrays.asList(args).listIterator();
             Arguments arguments = new Arguments();
             while (iterator.hasNext()) {
-                String arg;
+                String arg = iterator.next();
                 String arg2;
-                switch (arg = iterator.next()) {
+                String arg3;
+                switch (arg) {
                     case "-h":
                     case "--help":
                         arguments.printHelp = true;
@@ -117,6 +124,18 @@ public class Main {
                             throw new IllegalArgumentException("--url requires an url parameter");
                         }
                         break;
+                    case "-k":
+                    case "--hotkey":
+                        if (iterator.hasNext() && (arg2 = iterator.next()).charAt(0) != '-' && iterator.hasNext() && (arg3 = iterator.next()).charAt(0) != '-') {
+                            KeyStroke keyStroke = KeyStroke.getKeyStroke(arg2);
+                            if (keyStroke == null) {
+                                throw new IllegalArgumentException(arg2 + " is not a valid keystroke");
+                            }
+                            arguments.hotkeys.put(keyStroke, arg3);
+                        } else {
+                            throw new IllegalArgumentException("--hotkey requires a keystroke and a command parameter");
+                        }
+                        break;
                     default:
                         throw new IllegalArgumentException("Unknown parameter " + arg);
                 }
@@ -131,7 +150,7 @@ public class Main {
 
         @Override
         public void accept(String[] newArgs) {
-            logger.debug("Received args from another instance: "+ Arrays.toString(newArgs));
+            logger.debug("Received args from another instance: " + Arrays.toString(newArgs));
             Arguments arguments = Arguments.parse(newArgs);
             if (urlHandler != null && arguments.url != null) {
                 urlHandler.accept(arguments.url);
