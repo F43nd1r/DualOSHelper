@@ -1,5 +1,7 @@
 package com.faendir.clipboardshare.net;
 
+import dorkbox.systemTray.SystemTray;
+
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.datatransfer.Clipboard;
@@ -18,31 +20,32 @@ public abstract class SocketLifeCycleManager<T> {
     public void start() {
         try {
             Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
-            PopupMenu menu = new PopupMenu();
-            menu.add(new MenuItem("Stop")).addActionListener(e -> {
+            SystemTray systemTray = SystemTray.get();
+            Image logo = ImageIO.read(getClass().getResource("mylogo.png"));
+            systemTray.setImage(logo);
+            systemTray.setTooltip("Waiting for connection");
+            systemTray.getMenu().add(new dorkbox.systemTray.MenuItem("Stop", e -> {
                 synchronized (this) {
                     stop = true;
                     notifyAll();
                 }
-            });
-            TrayIcon trayIcon = new TrayIcon(
-                    ImageIO.read(getClass().getResource("mylogo.png")).getScaledInstance(SystemTray.getSystemTray().getTrayIconSize().width, -1, Image.SCALE_SMOOTH));
-            trayIcon.setPopupMenu(menu);
+            }));
             T t = prepare();
             Thread mainLoopThread = new Thread(() -> {
                 while (!stop) {
                     try {
                         Socket client = acquireSocket(t);
+                        systemTray.setTooltip("Connected");
                         Connector connector = new Connector(client, clipboard);
                         this.connector = connector;
                         connector.run();
+                        systemTray.setTooltip("Disconnected");
                         this.connector = null;
                     } catch (IOException | InterruptedException ignored) {
                     }
                 }
             });
             try {
-                SystemTray.getSystemTray().add(trayIcon);
                 mainLoopThread.start();
                 while (!stop) {
                     synchronized (this) {
@@ -53,7 +56,7 @@ public abstract class SocketLifeCycleManager<T> {
                     connector.stop();
                 }
             } finally {
-                SystemTray.getSystemTray().remove(trayIcon);
+                systemTray.shutdown();
                 release(t);
                 if (mainLoopThread.isAlive()) {
                     mainLoopThread.join();

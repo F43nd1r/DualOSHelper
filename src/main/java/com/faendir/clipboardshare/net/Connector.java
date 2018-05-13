@@ -5,6 +5,9 @@ import com.faendir.clipboardshare.io.OutputHandler;
 import com.faendir.clipboardshare.message.Command;
 import com.faendir.clipboardshare.message.Message;
 import com.faendir.clipboardshare.message.StringMessage;
+import edu.stanford.ejalbert.BrowserLauncher;
+import edu.stanford.ejalbert.exception.BrowserLaunchingInitializingException;
+import edu.stanford.ejalbert.exception.UnsupportedOperatingSystemException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +89,7 @@ public class Connector implements ClipboardOwner {
                         case URL_CONTENT:
                             StringMessage urlMessage = (StringMessage) message;
                             logger.debug("Received remote url "+ urlMessage.getMsg());
-                            Runtime.getRuntime().exec("xdg-open " + urlMessage.getMsg());
+                            new BrowserLauncher().openURLinBrowser(urlMessage.getMsg());
                         case SOCKET_EXIT:
                             logger.debug("Received disconnect message");
                             stopNow();
@@ -96,7 +99,7 @@ public class Connector implements ClipboardOwner {
                             break;
                     }
                 } catch (InterruptedException ignored) {
-                } catch (IOException e) {
+                } catch (IOException | BrowserLaunchingInitializingException | UnsupportedOperatingSystemException e) {
                     e.printStackTrace();
                 }
             }

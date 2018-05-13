@@ -23,8 +23,7 @@ public class Main {
     public static void main(String[] args) {
         Logger logger = LoggerFactory.getLogger(Main.class);
         InstanceManager instanceManager = new InstanceManager();
-        final NewArgHandler newArgHandler = new NewArgHandler();
-        if (instanceManager.start(args, newArgHandler)) {
+        if (instanceManager.start(args)) {
             try {
                 Arguments arguments = Arguments.parse(args);
                 if (arguments.printHelp) {
@@ -44,13 +43,20 @@ public class Main {
                     }
                 } else if (arguments.client) {
                     Client client = new Client(arguments.address, arguments.hotkeys);
-                    newArgHandler.urlHandler = client::handleUrl;
+                    InstanceManager.Listener listener = a -> {
+                        Arguments ar = Arguments.parse(a);
+                        if (ar.url != null) {
+                            client.handleUrl(ar.url);
+                        }
+                    };
+                    instanceManager.addListener(listener);
                     logger.info("Starting client...");
                     try {
                         client.start();
                     } finally {
                         logger.info("Client stopped");
                     }
+                    instanceManager.removeListener(listener);
                 }
             } catch (IllegalArgumentException e) {
                 logger.error("Failed to parse parameters: " + e.getMessage());
@@ -150,11 +156,6 @@ public class Main {
 
         @Override
         public void accept(String[] newArgs) {
-            logger.debug("Received args from another instance: " + Arrays.toString(newArgs));
-            Arguments arguments = Arguments.parse(newArgs);
-            if (urlHandler != null && arguments.url != null) {
-                urlHandler.accept(arguments.url);
-            }
         }
     }
 }
