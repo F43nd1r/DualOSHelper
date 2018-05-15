@@ -1,6 +1,8 @@
 package com.faendir.clipboardshare.net;
 
 import dorkbox.systemTray.SystemTray;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
@@ -14,6 +16,7 @@ import java.util.Optional;
  * @since 10.05.18
  */
 public abstract class SocketLifeCycleManager<T> {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private volatile Connector connector = null;
     private volatile boolean stop = false;
 
@@ -34,14 +37,19 @@ public abstract class SocketLifeCycleManager<T> {
             Thread mainLoopThread = new Thread(() -> {
                 while (!stop) {
                     try {
-                        Socket client = acquireSocket(t);
+                        logger.debug("Acquiring socket...");
+                        Socket socket = acquireSocket(t);
+                        logger.debug("Acquired socket");
                         systemTray.setTooltip("Connected");
-                        Connector connector = new Connector(client, clipboard);
+                        Connector connector = new Connector(socket, clipboard);
                         this.connector = connector;
+                        logger.debug("Running connector...");
                         connector.run();
+                        logger.debug("Connector returned");
+                    } catch (IOException ignored) {
+                    }finally {
                         systemTray.setTooltip("Disconnected");
                         this.connector = null;
-                    } catch (IOException | InterruptedException ignored) {
                     }
                 }
             });

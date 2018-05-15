@@ -13,6 +13,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author lukas
@@ -43,12 +44,20 @@ public class Client extends SocketLifeCycleManager<Provider> {
 
     @Override
     protected Socket acquireSocket(Provider provider) throws IOException {
-        return new Socket(host, Server.PORT);
+        try {
+            return new Socket(host, Server.PORT);
+        } catch (IOException e) {
+            try {
+                TimeUnit.SECONDS.sleep(5);
+            } catch (InterruptedException ignored) {
+            }
+            throw e;
+        }
     }
 
     public void handleUrl(String url) {
         Optional<Connector> connector = getConnector();
-        if(connector.isPresent()){
+        if (connector.isPresent()) {
             connector.get().send(new StringMessage(Command.URL_CONTENT, url));
         } else {
             try {

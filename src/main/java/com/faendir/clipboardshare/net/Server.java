@@ -20,7 +20,7 @@ public class Server extends SocketLifeCycleManager<ServerSocket>{
     @Override
     protected ServerSocket prepare() throws IOException {
         ServerSocket socket = new ServerSocket(PORT, 0, inetAddress);
-        socket.setSoTimeout(1000);
+        socket.setSoTimeout(5000);
         return socket;
     }
 

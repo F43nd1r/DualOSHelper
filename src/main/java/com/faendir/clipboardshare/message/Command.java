@@ -26,7 +26,7 @@ public enum Command {
     KEY_STROKE {
         @Override
         public Message readMessage(DataInputStream in) throws IOException {
-            return KeyStrokeMessage.readFrom(in);
+            return StringMessage.readFrom(this, in);
         }
     };
 

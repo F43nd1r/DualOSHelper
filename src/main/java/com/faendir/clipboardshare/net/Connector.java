@@ -43,7 +43,7 @@ public class Connector implements ClipboardOwner {
         out = new OutputHandler(socket);
     }
 
-    public void run() throws InterruptedException {
+    public void run() {
         gainOwnership();
         in.start();
         out.start();
@@ -79,7 +79,7 @@ public class Connector implements ClipboardOwner {
                             break;
                         case KEY_STROKE:
                             StringMessage keyStrokeMessage = (StringMessage) message;
-                            logger.debug("Received keystroke command" + keyStrokeMessage.getMsg());
+                            logger.debug("Received keystroke command \"" + keyStrokeMessage.getMsg() + "\"");
                             Runtime.getRuntime().exec(keyStrokeMessage.getMsg());
                             break;
                         case HEARTBEAT:
@@ -88,11 +88,13 @@ public class Connector implements ClipboardOwner {
                             break;
                         case URL_CONTENT:
                             StringMessage urlMessage = (StringMessage) message;
-                            logger.debug("Received remote url "+ urlMessage.getMsg());
+                            logger.debug("Received remote url " + urlMessage.getMsg());
                             new BrowserLauncher().openURLinBrowser(urlMessage.getMsg());
                         case SOCKET_EXIT:
                             logger.debug("Received disconnect message");
                             stopNow();
+                            //give closing socket time to close before trying to reconnect
+                            TimeUnit.SECONDS.sleep(1);
                             break loop;
                         default:
                             logger.error("Invalid message " + message.getCommand());
@@ -104,6 +106,7 @@ public class Connector implements ClipboardOwner {
                 }
             }
             logger.info("Socket disconnected");
+        } catch (InterruptedException ignored) {
         } finally {
             scheduledExecutorService.shutdownNow();
             Runtime.getRuntime().removeShutdownHook(hook);

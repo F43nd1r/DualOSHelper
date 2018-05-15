@@ -34,16 +34,17 @@ public abstract class BaseHandler<T extends Closeable> {
                     try {
                         run(resource);
                     } catch (EOFException | SocketException e) {
-                        try {
-                            stop();
-                        } catch (InterruptedException|IOException ignored) {
-                        }
+                        break;
                     } catch (InterruptedException | SocketTimeoutException ignored) {
                     } catch (IOException | IllegalArgumentException e) {
                         e.printStackTrace();
                     }
                 }
                 logger.debug("Dropping resource of type " + resource.getClass().getSimpleName());
+                try {
+                    stop();
+                } catch (InterruptedException|IOException ignored) {
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
