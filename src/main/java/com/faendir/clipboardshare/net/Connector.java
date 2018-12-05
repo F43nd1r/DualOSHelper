@@ -90,6 +90,7 @@ public class Connector implements ClipboardOwner {
                             StringMessage urlMessage = (StringMessage) message;
                             logger.debug("Received remote url " + urlMessage.getMsg());
                             new BrowserLauncher().openURLinBrowser(urlMessage.getMsg());
+                            break;
                         case SOCKET_EXIT:
                             logger.debug("Received disconnect message");
                             stopNow();

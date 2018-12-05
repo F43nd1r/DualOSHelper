@@ -3,9 +3,6 @@ package com.faendir.clipboardshare.net;
 import com.faendir.clipboardshare.message.Command;
 import com.faendir.clipboardshare.message.StringMessage;
 import com.tulskiy.keymaster.common.Provider;
-import edu.stanford.ejalbert.BrowserLauncher;
-import edu.stanford.ejalbert.exception.BrowserLaunchingInitializingException;
-import edu.stanford.ejalbert.exception.UnsupportedOperatingSystemException;
 
 import javax.swing.*;
 import java.io.IOException;
@@ -31,8 +28,7 @@ public class Client extends SocketLifeCycleManager<Provider> {
     @Override
     protected Provider prepare() {
         Provider provider = Provider.getCurrentProvider(false);
-        hotkeys.forEach(
-                (keyStroke, command) -> provider.register(keyStroke, e -> getConnector().ifPresent(connector -> connector.send(new StringMessage(Command.KEY_STROKE, command)))));
+        hotkeys.forEach((keyStroke, command) -> provider.register(keyStroke, e -> getConnector().ifPresent(connector -> connector.send(new StringMessage(Command.KEY_STROKE, command)))));
         return provider;
     }
 
@@ -61,8 +57,8 @@ public class Client extends SocketLifeCycleManager<Provider> {
             connector.get().send(new StringMessage(Command.URL_CONTENT, url));
         } else {
             try {
-                new BrowserLauncher().openURLinBrowser(url);
-            } catch (BrowserLaunchingInitializingException | UnsupportedOperatingSystemException e) {
+                Runtime.getRuntime().exec("\"C:\\Program Files\\Mozilla Firefox\\firefox.exe\" -url " + url);
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         }
