@@ -26,7 +26,7 @@ public abstract class SocketLifeCycleManager<T> {
             SystemTray systemTray = SystemTray.get();
             Image logo = ImageIO.read(getClass().getResource("mylogo.png"));
             systemTray.setImage(logo);
-            systemTray.setTooltip("Waiting for connection");
+            setStatus(systemTray, "Waiting for connection");
             systemTray.getMenu().add(new dorkbox.systemTray.MenuItem("Stop", e -> {
                 synchronized (this) {
                     stop = true;
@@ -40,15 +40,15 @@ public abstract class SocketLifeCycleManager<T> {
                         logger.debug("Acquiring socket...");
                         Socket socket = acquireSocket(t);
                         logger.debug("Acquired socket");
-                        systemTray.setTooltip("Connected");
+                        setStatus(systemTray, "Connected");
                         Connector connector = new Connector(socket, clipboard);
                         this.connector = connector;
                         logger.debug("Running connector...");
                         connector.run();
                         logger.debug("Connector returned");
                     } catch (IOException ignored) {
-                    }finally {
-                        systemTray.setTooltip("Disconnected");
+                    } finally {
+                        setStatus(systemTray, "Disconnected");
                         this.connector = null;
                     }
                 }
@@ -83,5 +83,10 @@ public abstract class SocketLifeCycleManager<T> {
 
     protected Optional<Connector> getConnector() {
         return Optional.ofNullable(connector);
+    }
+
+    private void setStatus(SystemTray systemTray, String status) {
+        systemTray.setStatus(status);
+        systemTray.setTooltip(status);
     }
 }
