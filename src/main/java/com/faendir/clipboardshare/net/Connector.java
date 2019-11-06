@@ -5,6 +5,7 @@ import com.faendir.clipboardshare.io.OutputHandler;
 import com.faendir.clipboardshare.message.Command;
 import com.faendir.clipboardshare.message.Message;
 import com.faendir.clipboardshare.message.StringMessage;
+import com.faendir.clipboardshare.threading.TaskManager;
 import edu.stanford.ejalbert.BrowserLauncher;
 import edu.stanford.ejalbert.exception.BrowserLaunchingInitializingException;
 import edu.stanford.ejalbert.exception.UnsupportedOperatingSystemException;
@@ -35,15 +36,17 @@ public class Connector implements ClipboardOwner {
     private final InputHandler in;
     private final OutputHandler out;
     private long lastHeartbeat;
+    private boolean stop = false;
 
-    public Connector(Socket socket, Clipboard clipboard) {
+    public Connector(Socket socket, Clipboard clipboard, TaskManager taskManager) {
         this.socket = socket;
         this.clipboard = clipboard;
-        in = new InputHandler(socket);
-        out = new OutputHandler(socket);
+        in = new InputHandler(socket, taskManager);
+        out = new OutputHandler(socket, taskManager);
     }
 
-    public void run() {
+    public void run() throws InterruptedException {
+        stop = false;
         gainOwnership();
         in.start();
         out.start();
@@ -60,7 +63,7 @@ public class Connector implements ClipboardOwner {
                     try {
                         logger.info("No heartbeat for 5 Minutes. Stopping...");
                         stopNow();
-                    } catch (IOException | InterruptedException ignored) {
+                    } catch (IOException ignored) {
                     }
                 } else {
                     out.put(new Message(Command.HEARTBEAT));
@@ -101,13 +104,11 @@ public class Connector implements ClipboardOwner {
                             logger.error("Invalid message " + message.getCommand());
                             break;
                     }
-                } catch (InterruptedException ignored) {
                 } catch (IOException | BrowserLaunchingInitializingException | UnsupportedOperatingSystemException e) {
                     e.printStackTrace();
                 }
             }
             logger.info("Socket disconnected");
-        } catch (InterruptedException ignored) {
         } finally {
             scheduledExecutorService.shutdownNow();
             Runtime.getRuntime().removeShutdownHook(hook);
@@ -119,6 +120,7 @@ public class Connector implements ClipboardOwner {
     }
 
     public void stop() {
+        stop = true;
         try {
             out.put(new Message(Command.SOCKET_EXIT));
             TimeUnit.MILLISECONDS.sleep(100);
@@ -127,15 +129,16 @@ public class Connector implements ClipboardOwner {
         }
     }
 
-    private void stopNow() throws IOException, InterruptedException {
+    private void stopNow() throws IOException {
         out.stop();
         in.stop();
         socket.close();
+        stop = true;
     }
 
     @Override
     public void lostOwnership(Clipboard clipboard, Transferable contents) {
-        if (!socket.isClosed()) {
+        if (!stop && !socket.isClosed()) {
             try {
                 TimeUnit.MILLISECONDS.sleep(100);
             } catch (InterruptedException e) {

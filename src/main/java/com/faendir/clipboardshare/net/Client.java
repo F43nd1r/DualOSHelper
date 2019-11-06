@@ -2,6 +2,7 @@ package com.faendir.clipboardshare.net;
 
 import com.faendir.clipboardshare.message.Command;
 import com.faendir.clipboardshare.message.StringMessage;
+import com.faendir.clipboardshare.threading.TaskManager;
 import com.tulskiy.keymaster.common.Provider;
 
 import javax.swing.*;
@@ -16,30 +17,31 @@ import java.util.concurrent.TimeUnit;
  * @author lukas
  * @since 27.04.18
  */
-public class Client extends SocketLifeCycleManager<Provider> {
+public class Client extends SocketLifeCycleManager {
     private final InetAddress host;
     private final Map<KeyStroke, String> hotkeys;
+    private Provider provider;
 
-    public Client(InetAddress host, Map<KeyStroke, String> hotkeys) {
+    public Client(InetAddress host, Map<KeyStroke, String> hotkeys, TaskManager taskManager) {
+        super(taskManager);
         this.host = host;
         this.hotkeys = hotkeys;
     }
 
     @Override
-    protected Provider prepare() {
-        Provider provider = Provider.getCurrentProvider(false);
+    protected void prepare() {
+        provider = Provider.getCurrentProvider(false);
         hotkeys.forEach((keyStroke, command) -> provider.register(keyStroke, e -> getConnector().ifPresent(connector -> connector.send(new StringMessage(Command.KEY_STROKE, command)))));
-        return provider;
     }
 
     @Override
-    protected void release(Provider provider) {
+    protected void release() {
         provider.reset();
         provider.stop();
     }
 
     @Override
-    protected Socket acquireSocket(Provider provider) throws IOException {
+    protected Socket acquireSocket() {
         try {
             return new Socket(host, Server.PORT);
         } catch (IOException e) {
@@ -47,7 +49,7 @@ public class Client extends SocketLifeCycleManager<Provider> {
                 TimeUnit.SECONDS.sleep(5);
             } catch (InterruptedException ignored) {
             }
-            throw e;
+            throw new RuntimeException(e);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.faendir.clipboardshare.io;
 
 import com.faendir.clipboardshare.message.Message;
+import com.faendir.clipboardshare.threading.TaskManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,8 +15,8 @@ import java.net.Socket;
  */
 public class OutputHandler extends BaseHandler<DataOutputStream> {
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    public OutputHandler(Socket socket) {
-        super(socket);
+    public OutputHandler(Socket socket, TaskManager taskManager) {
+        super(socket, taskManager);
     }
 
     @Override

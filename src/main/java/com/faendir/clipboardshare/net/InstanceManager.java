@@ -1,5 +1,6 @@
 package com.faendir.clipboardshare.net;
 
+import com.faendir.clipboardshare.threading.TaskManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +15,9 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 /**
  * @author lukas
@@ -23,10 +27,11 @@ public class InstanceManager {
     private static final int PORT = 6029;
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final List<Listener> listeners;
-    private Thread thread;
-    private volatile boolean stop = false;
+    private final TaskManager taskManager;
+    private Future<?> future;
 
-    public InstanceManager() {
+    public InstanceManager(TaskManager taskManager) {
+        this.taskManager = taskManager;
         listeners = new ArrayList<>();
     }
 
@@ -38,15 +43,14 @@ public class InstanceManager {
             e.printStackTrace();
             return false;
         }
-        stop = false;
         try {
             ServerSocket serverSocket = new ServerSocket(PORT, 0, inetAddress);
             logger.debug("Successfully opened port " + PORT + ". This is the first instance.");
             serverSocket.setSoTimeout(1000);
-            thread = new Thread(() -> {
-                while (!stop) {
+            future = taskManager.startTask(() -> {
+                while (!Thread.interrupted()) {
                     if (serverSocket.isClosed()) {
-                        stop = true;
+                        break;
                     }
                     try (Socket socket = serverSocket.accept();
                          DataInputStream in = new DataInputStream(socket.getInputStream())) {
@@ -69,7 +73,6 @@ public class InstanceManager {
                     }
                 }
             });
-            thread.start();
             return true;
         } catch (IOException e) {
             logger.debug("Failed to open port " + PORT + ". Usually this means another instance is already running. Sending args to that instance...");
@@ -86,11 +89,13 @@ public class InstanceManager {
         }
     }
 
-    public void stop() throws InterruptedException {
-        if (!stop) {
-            stop = true;
-            thread.interrupt();
-            thread.join();
+    public void stop() {
+        if(future != null && !future.isDone()) {
+            future.cancel(true);
+            try {
+                future.get();
+            } catch (InterruptedException | ExecutionException| CancellationException ignored) {
+            }
         }
     }
 

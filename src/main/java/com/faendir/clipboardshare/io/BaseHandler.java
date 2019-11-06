@@ -1,6 +1,7 @@
 package com.faendir.clipboardshare.io;
 
 import com.faendir.clipboardshare.message.Message;
+import com.faendir.clipboardshare.threading.TaskManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,6 +12,9 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.util.concurrent.BlockingDeque;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingDeque;
 
 /**
@@ -20,14 +24,25 @@ import java.util.concurrent.LinkedBlockingDeque;
 public abstract class BaseHandler<T extends Closeable> {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     private final BlockingDeque<Message> queue;
-    private final Thread thread;
+    private Future<?> future;
     private final Socket socket;
+    private final TaskManager taskManager;
     private volatile boolean stop = false;
 
-    public BaseHandler(Socket socket) {
+    public BaseHandler(Socket socket, TaskManager taskManager) {
         this.socket = socket;
+        this.taskManager = taskManager;
         queue = new LinkedBlockingDeque<>();
-        thread = new Thread(() -> {
+    }
+
+    protected abstract T openResource(Socket socket) throws IOException;
+
+    protected abstract boolean isResourceOpen(Socket socket);
+
+    protected abstract void closeResource(Socket socket) throws IOException;
+
+    public void start() {
+        future = taskManager.startTask(() -> {
             try (T resource = openResource(socket)) {
                 logger.debug("Aquired resource of type " + resource.getClass().getSimpleName());
                 while (!stop && !socket.isClosed() && isResourceOpen(socket)) {
@@ -43,7 +58,7 @@ public abstract class BaseHandler<T extends Closeable> {
                 logger.debug("Dropping resource of type " + resource.getClass().getSimpleName());
                 try {
                     stop();
-                } catch (InterruptedException|IOException ignored) {
+                } catch (IOException ignored) {
                 }
             } catch (IOException e) {
                 e.printStackTrace();
@@ -51,25 +66,20 @@ public abstract class BaseHandler<T extends Closeable> {
         });
     }
 
-    protected abstract T openResource(Socket socket) throws IOException;
-
-    protected abstract boolean isResourceOpen(Socket socket);
-
-    protected abstract void closeResource(Socket socket) throws IOException;
-
-    public void start() {
-        thread.start();
-    }
-
-    public void stop() throws InterruptedException, IOException {
+    public void stop() throws IOException {
         if(!stop) {
             stop = true;
             if(!socket.isClosed()) {
                 logger.debug("Closing resource");
                 closeResource(socket);
             }
-            thread.interrupt();
-            thread.join();
+            if(future != null && !future.isDone()) {
+                future.cancel(true);
+                try {
+                    future.get();
+                } catch (InterruptedException | ExecutionException| CancellationException ignored) {
+                }
+            }
         }
     }
 
